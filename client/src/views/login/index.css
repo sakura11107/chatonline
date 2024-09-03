@@ -1,0 +1,14 @@
+
+.container {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.button-container {
+  margin-right: 20px;
+}
+
+.form-item-label .ant-form-item-label > label {  
+  color: red !important;  
+}
