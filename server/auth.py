@@ -99,7 +99,23 @@ def search():
 @friends_bp.route('/send_friend_request', methods=['POST'])
 def send_friend_request():
     data = request.json
-    user_id = data.get('user_id')
+    # 从请求头中获取token
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'Authorization header is missing or invalid'}), 401
+    
+    # 从Authorization头中解析token
+    token = auth_header.split(' ')[1]
+    
+    try:
+        # 解析JWT token来获取user_id
+        decoded = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        user_id = decoded['user_id']
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token has expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    
     friend_id = data.get('friend_id')
 
     if not user_id or not friend_id:
@@ -118,13 +134,31 @@ def send_friend_request():
 @friends_bp.route('/accept_friend_request', methods=['POST'])
 def accept_friend_request():
     data = request.json
-    user_id = data.get('user_id')
-    friend_id = data.get('friend_id')
+    
+    # 从请求头中获取token
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'Authorization header is missing or invalid'}), 401
+    
+    # 从Authorization头中解析token
+    token = auth_header.split(' ')[1]
+    
+    try:
+        # 解析JWT token来获取user_id
+        decoded = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        user_id = decoded['user_id']
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token has expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    
+    friendship_id = data.get('friend_id')
 
-    if not user_id or not friend_id:
+    if not user_id or not friendship_id:
         return jsonify({'error': 'User ID and friend ID are required'}), 400
     
-    friendship = Friendship.query.filter_by(user_id=friend_id, friend_id=user_id, status='pending').first()
+    friendship = Friendship.find_pending_request(friendship_id, user_id)
+    
     if not friendship:
         return jsonify({'error': 'Friend request not found'}), 404
     
@@ -132,17 +166,68 @@ def accept_friend_request():
     db.session.commit()
     return jsonify({'message': 'Friend request accepted successfully'}), 200
 
+# 删除好友
+@friends_bp.route('/delete_friend', methods=['POST'])
+def delete_friend():
+    data = request.json
+    # 从请求头中获取token
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'Authorization header is missing or invalid'}), 401
+    
+    # 从Authorization头中解析token
+    token = auth_header.split(' ')[1]
+    
+    try:
+        # 解析JWT token来获取user_id
+        decoded = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        user_id = decoded['user_id']
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token has expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    friend_id = data.get('friend_id')
+
+    if not user_id or not friend_id:
+        return jsonify({'error': 'User ID and friend ID are required'}), 400
+    
+    friendship = Friendship.query.filter(
+        ((Friendship.user_id == user_id) & (Friendship.friend_id == friend_id)) |
+        ((Friendship.user_id == friend_id) & (Friendship.friend_id == user_id))
+    ).first()
+    if not friendship:
+        return jsonify({'error': 'Friendship not found'}), 404
+    
+    db.session.delete(friendship)
+    db.session.commit()
+    return jsonify({'message': 'Friend deleted successfully'}), 200
+
 # 拒绝好友请求
 @friends_bp.route('/reject_friend_request', methods=['POST'])
 def reject_friend_request():
     data = request.json
-    user_id = data.get('user_id')
-    friend_id = data.get('friend_id')
+    # 从请求头中获取token
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'Authorization header is missing or invalid'}), 401
+    
+    # 从Authorization头中解析token
+    token = auth_header.split(' ')[1]
+    
+    try:
+        # 解析JWT token来获取user_id
+        decoded = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        user_id = decoded['user_id']
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token has expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    friendship_id = data.get('friend_id')
 
-    if not user_id or not friend_id:
+    if not user_id or not friendship_id:
         return jsonify({'error': 'User ID and Friend ID are required'}), 400
 
-    friendship = Friendship.query.filter_by(user_id=friend_id, friend_id=user_id, status='pending').first()
+    friendship = Friendship.find_pending_request(friendship_id, user_id)
     if not friendship:
         return jsonify({'error': 'Friend request not found'}), 404
 
@@ -188,4 +273,34 @@ def get_friends():
 
     return jsonify(friends), 200
 
+# 获取好友请求列表
+@friends_bp.route('/get_friend_requests', methods=['GET'])
+def get_friend_requests():
+    token = request.headers.get('Authorization').split()[1]
+    decoded = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+    user_id = decoded['user_id']
+    
+    requests = Friendship.query.filter_by(friend_id=user_id, status='pending').all()
+    request_list = [{'id': req.id, 'username': req.user.username} for req in requests]
+    
+    return jsonify(request_list), 200
 
+# 获取好友请求消息列表
+@friends_bp.route('/get_pending_requests_count', methods=['GET'])
+def get_pending_requests_count():
+    auth_header = request.headers.get('Authorization')
+    token = auth_header.split(' ')[1]
+
+    try:
+        decoded = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        user_id = decoded['user_id']
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token has expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+
+    if not user_id:
+        return jsonify({'error': 'User ID is required'}), 400
+
+    pending_requests_count = Friendship.query.filter_by(friend_id=user_id, status='pending').count()
+    return jsonify({'count': pending_requests_count}), 200 

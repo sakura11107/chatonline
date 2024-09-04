@@ -70,6 +70,9 @@ const chatSlice = createSlice({
     sendMessage: (state, action: PayloadAction<Message>) => {
       state.messages.push(action.payload);  // 添加新消息到消息列表
     },
+    resetChatState:(state) => {
+      Object.assign(state, initialState);  // 重置聊天状态为初始状态
+    }
   },
   extraReducers: (builder) => {
     builder
@@ -93,5 +96,5 @@ const chatSlice = createSlice({
   },
 });
 
-export const { selectMenu, selectSubMenu, selectChannelType, selectChannel, sendMessage } = chatSlice.actions;
+export const { selectMenu, selectSubMenu, selectChannelType, selectChannel, sendMessage,resetChatState } = chatSlice.actions;
 export default chatSlice.reducer;

@@ -23,19 +23,19 @@ const API_BASE_URL = 'http://localhost:5000'; // API URL 提取为常量
 // 获取好友列表（使用 token 进行身份验证）
 export const fetchFriends = createAsyncThunk(
   'friend/fetchFriends',
-  async (token: string, { rejectWithValue }) => { // 只需传递 token
+  async (token: string, { rejectWithValue }) => {
     try {
       const response = await axios.get(`${API_BASE_URL}/get_friends`, {
         headers: {
-          Authorization: `Bearer ${token}`, // 使用 Authorization 头
+          Authorization: `Bearer ${token}`,
         },
       });
       return response.data;
     } catch (error) {
-      if (axios.isAxiosError(error)) { // 检查错误是否为 AxiosError 类型
+      if (axios.isAxiosError(error)) {
         return rejectWithValue(error.response?.data?.error || 'Failed to fetch friends');
       }
-      return rejectWithValue('Failed to fetch friends'); // 对于非 Axios 错误
+      return rejectWithValue('Failed to fetch friends');
     }
   }
 );
@@ -44,25 +44,52 @@ export const fetchFriends = createAsyncThunk(
 export const sendFriendRequest = createAsyncThunk(
   'friend/sendFriendRequest',
   async (
-    { friendId, token }: { friendId: string; token: string }, // 去掉 userId 参数
+    { friendId, token }: { friendId: string; token: string },
     { rejectWithValue }
   ) => {
     try {
       const response = await axios.post(
         `${API_BASE_URL}/send_friend_request`,
-        { friend_id: friendId }, // 不再需要 user_id，由后端从 token 解析
+        { friend_id: friendId },
         {
           headers: {
-            Authorization: `Bearer ${token}`, // 使用 Authorization 头
+            Authorization: `Bearer ${token}`,
           },
         }
       );
       return response.data;
     } catch (error) {
-      if (axios.isAxiosError(error)) { // 检查错误是否为 AxiosError 类型
+      if (axios.isAxiosError(error)) {
         return rejectWithValue(error.response?.data?.error || 'Failed to send friend request');
       }
-      return rejectWithValue('Failed to send friend request'); // 对于非 Axios 错误
+      return rejectWithValue('Failed to send friend request');
+    }
+  }
+);
+
+// 删除好友请求（使用 token 进行身份验证）
+export const deleteFriendRequest = createAsyncThunk(
+  'friend/deleteFriendRequest',
+  async (
+    { friendId, token }: { friendId: string; token: string },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await axios.delete(
+        `${API_BASE_URL}/delete_friend`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          data: { friend_id: friendId },  // 使用 `data` 字段来传递请求体
+        }
+      );
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        return rejectWithValue(error.response?.data?.error || 'Failed to delete friend request');
+      }
+      return rejectWithValue('Failed to delete friend request');
     }
   }
 );
@@ -75,7 +102,7 @@ const friendSlice = createSlice({
     builder
       .addCase(fetchFriends.pending, (state) => {
         state.loading = true;
-        state.error = null; // 清除之前的错误
+        state.error = null;
       })
       .addCase(fetchFriends.fulfilled, (state, action) => {
         state.loading = false;
@@ -87,12 +114,23 @@ const friendSlice = createSlice({
       })
       .addCase(sendFriendRequest.pending, (state) => {
         state.loading = true;
-        state.error = null; // 清除之前的错误
+        state.error = null;
       })
       .addCase(sendFriendRequest.fulfilled, (state) => {
         state.loading = false;
       })
       .addCase(sendFriendRequest.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(deleteFriendRequest.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteFriendRequest.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(deleteFriendRequest.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });

@@ -1,21 +1,109 @@
-import React, { useState } from 'react';
-import { Button, Input, List, message, Layout, Modal } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Button, Input, List, message, Layout, Modal, Badge } from 'antd';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch,  } from 'react-redux'; // 导入 Redux hooks
+import { AppDispatch,  } from '../../store/store'; // 导入 Redux store 类型
+import { sendFriendRequest, deleteFriendRequest, fetchFriends } from '../../store/friendslice'; // 导入 Redux actions
 import LeftContainer from '../left';
 import MiddleContainer from '../middle';
 import RightContainer from '../right';
 import './index.css';
+import { resetChatState } from '../../store/chatslice';
 
 const { Sider, Content } = Layout;
+
+interface FriendRequest {
+  id: number;
+  username: string;
+}
 
 const Chat: React.FC = () => {
   const [username, setUsername] = useState<string>('');
   const [userList, setUserList] = useState<Array<{ id: number; username: string }>>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
+  const [isRequestModalVisible, setIsRequestModalVisible] = useState<boolean>(false);
 
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>(); // 使用 Redux dispatch
+
+  useEffect(() => {
+    fetchPendingRequestsCounts();
+    const token = localStorage.getItem('token');
+    if (token) {
+      dispatch(fetchFriends(token)); // 获取好友列表
+    }
+  }, [dispatch]);
+
+  const fetchPendingRequestsCounts = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      const response = await axios.get('http://localhost:5000/get_pending_requests_count', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setPendingRequestsCount(response.data.count);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchFriendRequests = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      const response = await axios.get('http://localhost:5000/get_friend_requests', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setFriendRequests(response.data);
+    } catch (err) {
+      console.error(err);
+      message.error('获取好友请求失败');
+    }
+  };
+
+  const handleViewRequests = () => {
+    fetchFriendRequests();
+    setIsRequestModalVisible(true);
+  };
+
+  const handleAcceptRequest = async (friendshipId: number) => {
+    const token = localStorage.getItem('token');
+    try {
+      await axios.post('http://localhost:5000/accept_friend_request', 
+        { friend_id: friendshipId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      message.success('好友请求已接受');
+      fetchFriendRequests();
+      fetchPendingRequestsCounts();
+      dispatch(fetchFriends(token!));
+    } catch (err) {
+      console.error(err);
+      message.error('接受好友请求失败');
+    }
+  };
+
+  const handleRejectRequest = async (friendshipId: number) => {
+    const token = localStorage.getItem('token');
+    try {
+      await axios.post('http://localhost:5000/reject_friend_request', 
+        { friend_id: friendshipId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      message.success('好友请求已拒绝');
+      fetchFriendRequests();
+      fetchPendingRequestsCounts();
+    } catch (err) {
+      console.error(err);
+      message.error('拒绝好友请求失败');
+    }
+  };
 
   const handleLogout = async () => {
     const token = localStorage.getItem('token');
@@ -27,6 +115,7 @@ const Chat: React.FC = () => {
         }
       });
       localStorage.removeItem('token');  // 删除 token
+      dispatch(resetChatState());  // 重置聊天状态
       message.success('成功注销');
       navigate('/login');
     } catch (err) {
@@ -66,14 +155,36 @@ const Chat: React.FC = () => {
     }
   };
 
-  const handleFriendRequest = (userId: number) => {
-    message.success(`发送好友请求给用户ID: ${userId}`);
-    // 这里可以添加发送好友请求的逻辑
+  const handleFriendRequest = async (userId: number) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      message.error('未找到用户身份，请重新登录');
+      return;
+    }
+
+    try {
+      await dispatch(sendFriendRequest({ friendId: userId.toString(), token })).unwrap();
+      message.success(`发送好友请求给用户ID: ${userId}`);
+      await fetchPendingRequestsCounts(); // 重新获取未处理请求数量
+    } catch (error) {
+      message.error(`发送好友请求失败: ${error}`);
+    }
   };
 
-  const handleDeleteFriend = (userId: number) => {
-    message.success(`删除好友请求用户ID: ${userId}`);
-    // 这里可以添加删除好友的逻辑
+  const handleDeleteFriend = async (userId: number) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      message.error('未找到用户身份，请重新登录');
+      return;
+    }
+
+    try {
+      await dispatch(deleteFriendRequest({ friendId: userId.toString(), token })).unwrap();
+      message.success(`删除好友请求用户ID: ${userId}`);
+      await fetchPendingRequestsCounts(); // 重新获取未处理请求数量
+    } catch (error) {
+      message.error(`删除好友请求失败: ${error}`);
+    }
   };
 
   const showModal = () => {
@@ -90,7 +201,32 @@ const Chat: React.FC = () => {
     <>
       <Button type="primary" onClick={handleLogout}>注销</Button>
       <Button type="primary" onClick={showModal}>查询用户</Button>
-      
+      <Badge count={pendingRequestsCount} offset={[10, 0]}>
+        <Button type="primary" onClick={handleViewRequests}>查看消息</Button>
+      </Badge>
+
+      <Modal
+        title="好友请求"
+        open={isRequestModalVisible}
+        onCancel={() => setIsRequestModalVisible(false)}
+        footer={null}
+      >
+        <List
+          dataSource={friendRequests}
+          renderItem={request => (
+            <List.Item>
+              <List.Item.Meta
+                title={`${request.username} 发送了好友请求`}
+              />
+              <Button type="primary" onClick={() => handleAcceptRequest(request.id)}>同意</Button>
+              <Button type="default" danger onClick={() => handleRejectRequest(request.id)} style={{ marginLeft: '10px' }}>
+                拒绝
+              </Button>
+            </List.Item>
+          )}
+        />
+      </Modal>
+
       <Modal
         title="查询用户"
         open={isModalVisible}
