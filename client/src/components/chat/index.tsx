@@ -41,7 +41,7 @@ const Chat: React.FC = () => {
   const fetchPendingRequestsCounts = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.get('http://localhost:5000/get_pending_requests_count', {
+      const response = await axios.get('/api/get_pending_requests_count', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -55,7 +55,7 @@ const Chat: React.FC = () => {
   const fetchFriendRequests = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.get('http://localhost:5000/get_friend_requests', {
+      const response = await axios.get('/api/get_friend_requests', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -75,7 +75,7 @@ const Chat: React.FC = () => {
   const handleAcceptRequest = async (friendshipId: number) => {
     const token = localStorage.getItem('token');
     try {
-      await axios.post('http://localhost:5000/accept_friend_request', 
+      await axios.post('/api/accept_friend_request', 
         { friend_id: friendshipId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -92,7 +92,7 @@ const Chat: React.FC = () => {
   const handleRejectRequest = async (friendshipId: number) => {
     const token = localStorage.getItem('token');
     try {
-      await axios.post('http://localhost:5000/reject_friend_request', 
+      await axios.post('/api/reject_friend_request', 
         { friend_id: friendshipId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -109,7 +109,7 @@ const Chat: React.FC = () => {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
-      await axios.post('http://localhost:5000/logout', { token }, {
+      await axios.post('/api/logout', { token }, {
         headers: {
           Authorization: `Bearer ${token}`,
         }
@@ -134,7 +134,7 @@ const Chat: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await axios.get('http://localhost:5000/search', {
+      const response = await axios.get('/api/search', {
         headers: {
           Authorization: `Bearer ${token}`,
         },

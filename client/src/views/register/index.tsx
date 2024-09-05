@@ -21,7 +21,7 @@ const Register: React.FC = () => {
 
     const handleRegister = async (values: RegisterFormValues) => {
         try {
-            const response = await axios.post('http://localhost:5000/register', values);
+            const response = await axios.post('/api/register', values);
             if (response.status === 201) {
                 navigate('/login');
                 message.success('注册成功,请登录');

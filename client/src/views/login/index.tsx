@@ -25,7 +25,7 @@ const Login : React.FC = () => {
 
   const handlelogin = async (values:LoginFormValues) =>{
     try{
-      const response = await axios.post('http://localhost:5000/login', values);
+      const response = await axios.post('/api/login', values);
       if(response.status === 200){
         localStorage.setItem('token', response.data.token);
         navigate('/chat');

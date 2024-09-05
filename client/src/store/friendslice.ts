@@ -18,7 +18,7 @@ const initialState: FriendState = {
   error: null,
 };
 
-const API_BASE_URL = 'http://localhost:5000'; // API URL 提取为常量
+const API_BASE_URL = '/api'; // 修改为代理路径
 
 // 获取好友列表（使用 token 进行身份验证）
 export const fetchFriends = createAsyncThunk(

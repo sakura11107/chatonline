@@ -35,7 +35,7 @@ export const sendMessageToChatGPT = createAsyncThunk(
   'chat/sendMessageToChatGPT',
   async (message: string, { rejectWithValue }) => {
     try {
-      const response = await axios.post('http://localhost:5000/chatgpt', { message },
+      const response = await axios.post('/api/chatgpt', { message },
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
